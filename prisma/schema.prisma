@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int               @id @default(autoincrement())
+  email          String            @unique @db.VarChar(255)
+  passwordHash   String            @db.VarChar(255)
+  firstName      String            @db.VarChar(100)
+  lastName       String            @db.VarChar(100)
+  phone          String            @db.VarChar(20)
+  address        String?           @db.VarChar(255)
+  postalCode     String?           @db.VarChar(10)
+  city           String?           @db.VarChar(100)
+  isValidated    Boolean?          @default(false)
+  isActive       Boolean?          @default(true)
+  validationCode String?           @db.VarChar(10)
+  avatarUrl      String?           @db.VarChar(255)
+  createdAt      DateTime?         @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime?         @default(now()) @updatedAt @db.Timestamp(6)
+  deletedAt      DateTime?         @db.Timestamp(6)
+  roles          UserRole[]        @default([client])
+  locations      Location[]
+  reservations   Reservation[]     @relation("renter")
+  reviews        Review[]
+  vehicles       Vehicle[]
+  favorites      FavoriteStation[]
+  reportsFiled   Report[]          @relation("reporter")
+}
+
+model Vehicle {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  brand        String   @db.VarChar(100)
+  model        String   @db.VarChar(100)
+  licensePlate String   @unique @db.VarChar(20)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  connectorType   ConnectorType?
+  batteryCapacity Decimal?       @db.Decimal(5, 2) // en kWh
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+}
+
+model FavoriteStation {
+  userId    Int
+  stationId Int
+  createdAt DateTime @default(now())
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  station ChargingStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@id([userId, stationId])
+}
+
+model Location {
+  id               Int               @id @default(autoincrement())
+  userId           Int
+  address          String            @db.VarChar(255)
+  postalCode       String            @db.VarChar(10)
+  city             String            @db.VarChar(100)
+  latitude         Decimal           @db.Decimal(10, 8)
+  longitude        Decimal           @db.Decimal(11, 8)
+  createdAt        DateTime?         @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime?         @default(now()) @updatedAt @db.Timestamp(6)
+  chargingStations ChargingStation[]
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model ChargingStation {
+  id            Int            @id @default(autoincrement())
+  locationId    Int
+  name          String         @db.VarChar(100)
+  powerKw       Decimal        @db.Decimal(5, 2)
+  connectorType ConnectorType?
+  instructions  String?
+  isOnStand     Boolean?       @default(false)
+  latitude      Decimal        @db.Decimal(10, 8)
+  longitude     Decimal        @db.Decimal(11, 8)
+  city          String         @db.VarChar(100)
+  isActive      Boolean?       @default(true)
+  isAvailable   Boolean        @default(true)
+  statusMessage String?        @db.VarChar(500)
+  photos        Json?          @default("[]")
+
+  createdAt      DateTime?         @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime?         @default(now()) @updatedAt @db.Timestamp(6)
+  deletedAt      DateTime?         @db.Timestamp(6)
+  deletionReason String?           @db.VarChar(500)
+  deletedBy      String?           @db.VarChar(50)
+  location       Location          @relation(fields: [locationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  pricing        Pricing[]
+  reservations   Reservation[]
+  reviews        Review[]
+  favoritedBy    FavoriteStation[]
+  reports        Report[]
+}
+
+model Pricing {
+  id                Int             @id @default(autoincrement())
+  chargingStationId Int
+  hourlyRate        Decimal         @db.Decimal(10, 2)
+  validFrom         DateTime?       @default(now()) @db.Timestamp(6)
+  validTo           DateTime?       @db.Timestamp(6)
+  chargingStation   ChargingStation @relation(fields: [chargingStationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model Reservation {
+  id                 Int               @id @default(autoincrement())
+  chargingStationId  Int
+  renterId           Int
+  vehicleId          Int?
+  startDatetime      DateTime          @db.Timestamp(6)
+  endDatetime        DateTime          @db.Timestamp(6)
+  totalAmount        Decimal           @db.Decimal(10, 2)
+  status             ReservationStatus @default(pending)
+  cancellationReason String?           @db.VarChar(500)
+  cancelledBy        String?           @db.VarChar(50)
+  refusedBy          String?           @db.VarChar(50)
+  createdAt          DateTime?         @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime?         @default(now()) @updatedAt @db.Timestamp(6)
+  payment            Payment?
+  receipt            Receipt?
+  chargingStation    ChargingStation   @relation(fields: [chargingStationId], references: [id], onUpdate: NoAction)
+  renter             User              @relation("renter", fields: [renterId], references: [id], onUpdate: NoAction)
+  vehicle            Vehicle?          @relation(fields: [vehicleId], references: [id], onUpdate: NoAction)
+}
+
+model Payment {
+  id              Int           @id @default(autoincrement())
+  reservationId   Int           @unique
+  amount          Decimal       @db.Decimal(10, 2)
+  cardLastDigits  String        @db.Char(4)
+  paymentStatus   PaymentStatus @default(pending)
+  paymentDate     DateTime?     @db.Timestamp(6)
+  stripePaymentId String?       @db.VarChar(255)
+  createdAt       DateTime?     @default(now()) @db.Timestamp(6)
+  reservation     Reservation   @relation(fields: [reservationId], references: [id], onUpdate: NoAction)
+}
+
+model Receipt {
+  id            Int         @id @default(autoincrement())
+  reservationId Int         @unique
+  filePath      String      @db.VarChar(255)
+  generatedAt   DateTime?   @default(now()) @db.Timestamp(6)
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onUpdate: NoAction)
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  stationId Int
+  rating    Int?     @db.SmallInt
+  comment   String?  @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  station ChargingStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  reports Report[]
+
+  @@unique([userId, stationId], map: "unique_user_station_review")
+}
+
+enum ReservationStatus {
+  pending
+  accepted
+  refused
+  completed
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  refunded
+  failed
+}
+
+enum UserRole {
+  client
+  owner
+  admin
+}
+
+enum ConnectorType {
+  TYPE2
+  TYPE2S
+  CCS
+  CHADEMO
+  DOMESTIC
+}
+
+model Report {
+  id              Int  @id @default(autoincrement())
+  reporterId      Int
+  targetStationId Int?
+  targetReviewId  Int?
+
+  reason      ReportReason
+  description String?      @db.VarChar(500)
+  status      ReportStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reporter      User             @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetStation ChargingStation? @relation(fields: [targetStationId], references: [id], onDelete: Cascade) // 7. RÉSERVATION TERMINÉE POUR UTILISATEUR TEST (Requis pour E2E Avis)
+  targetReview  Review?          @relation(fields: [targetReviewId], references: [id], onDelete: Cascade)
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportReason {
+  INAPPROPRIATE_CONTENT
+  BROKEN_STATION
+  INCORRECT_INFO
+  OTHER
+}
