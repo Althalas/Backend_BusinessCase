@@ -130,7 +130,7 @@ describe("BookingsController (e2e)", () => {
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
         })
-        .expect(404);
+        .expect(400);
     });
   });
 

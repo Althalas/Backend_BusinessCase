@@ -114,7 +114,7 @@ describe("PaymentsController (e2e)", () => {
         stationId,
         startTime,
         endTime,
-        vehicleId: null, // Optional
+        // vehicleId: null, // Optional
       })
       .expect(201);
     reservationId = bookingRes.body.id;
