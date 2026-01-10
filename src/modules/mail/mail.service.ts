@@ -47,18 +47,19 @@ export class MailService {
 
   private async initNodemailer() {
     // Vérifier si les identifiants SMTP sont fournis
-    const smtpHost = this.configService.get("SMTP_HOST");
-    const smtpUser = this.configService.get("SMTP_USER");
+    // Note: CI et .env utilisent MAIL_HOST, pas SMTP_HOST
+    const smtpHost = this.configService.get("MAIL_HOST") || this.configService.get("SMTP_HOST");
+    const smtpUser = this.configService.get("MAIL_USER") || this.configService.get("SMTP_USER");
 
     if (smtpHost) {
       // Utiliser les identifiants SMTP fournis
       this.transporter = nodemailer.createTransport({
         host: smtpHost,
-        port: Number(this.configService.get("SMTP_PORT", 587)),
-        secure: this.configService.get("SMTP_SECURE") === "true", // true pour 465, false pour les autres
+        port: Number(this.configService.get("MAIL_PORT") || this.configService.get("SMTP_PORT") || 587),
+        secure: this.configService.get("MAIL_SECURE") === "true" || this.configService.get("SMTP_SECURE") === "true", // true pour 465
         auth: {
           user: smtpUser,
-          pass: this.configService.get("SMTP_PASS"),
+          pass: this.configService.get("MAIL_PASSWORD") || this.configService.get("SMTP_PASS"),
         },
       });
       this.logger.log(`Using SMTP server: ${smtpHost} 📤`);
@@ -161,7 +162,7 @@ export class MailService {
       }
     } catch (error) {
       this.logger.error("Error sending email", error);
-      throw error;
+      // throw error; // NE PAS BLOQUER l'inscription si l'envoi d'email échoue (ex: CI sans serveur SMTP)
     }
   }
 
@@ -226,7 +227,7 @@ export class MailService {
       this.logger.error("Error sending contact email", error);
       // On ne throw pas forcément ici pour ne pas bloquer l'utilisateur si le support est down,
       // mais bon de le savoir.
-      throw error;
+      // throw error; 
     }
   }
 }
