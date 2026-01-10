@@ -1,0 +1,83 @@
+services:
+  # Application Backend (NestJS) en mode Développement
+  app:
+    image: node:22-alpine
+    container_name: electricity_backend_dev
+    working_dir: /usr/src/app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      # Connexion à la DB locale du conteneur 'db'
+      - DATABASE_URL=postgresql://dev:dev@db:5432/electricity_dev?schema=public
+      - JWT_SECRET=dev-super-secret-key
+      - JWT_EXPIRATION=1d
+      - PORT=3000
+      # SMTP Configuration (optionnel - si non défini, Ethereal mock sera utilisé)
+      # Définir dans .env : GMAIL_USER et GMAIL_APP_PASSWORD pour activer Gmail
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_USER=${GMAIL_USER:-}
+      - SMTP_PASS=${GMAIL_APP_PASSWORD:-}
+      - SUPPORT_EMAIL=${GMAIL_USER:-support@electricity-business.com}
+      # Stripe
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-sk_test_dummy}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
+      - FRONTEND_URL=http://localhost:4200
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules # Isole les node_modules du conteneur de ceux de l'hôte
+    # Installation des deps + Generation Client Prisma + Migration + Seed + Démarrage en Watch mode
+    command: sh -c "npm install && npx prisma generate && npx prisma db push --skip-generate && npx prisma db seed && npm run start:dev"
+    depends_on:
+      - db
+
+  # Application Frontend (Angular) en mode Développement
+  frontend:
+    build:
+      context: ../Frontend_BusinessCase
+      dockerfile: Dockerfile.dev
+    container_name: electricity_frontend_dev
+    ports:
+      - "4200:4200"
+    volumes:
+      - ../Frontend_BusinessCase:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true # Force le polling pour le hot-reload
+    depends_on:
+      - app
+
+  # Base de données PostgreSQL locale pour le Dev
+  db:
+    image: postgres:17-alpine
+    container_name: electricity_db_dev
+    environment:
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: electricity_dev
+    ports:
+      - "5432:5432" # Attention au conflit si un autre Postgres tourne déjà (Ex: Neon Proxy local ou Test)
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U dev -d electricity_dev" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Interface graphique pour visualiser la BDD (Bonus CDA)
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: electricity_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80" # Accessible via http://localhost:5050
+    depends_on:
+      - db
+
+volumes:
+  postgres_data_dev:

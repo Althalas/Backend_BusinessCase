@@ -1,0 +1,157 @@
+
+> electricity-business-backend@1.0.0 test:e2e
+> jest --config ./test/jest-e2e.json --runInBand roles
+
+  console.log
+    prisma:info Starting a postgresql pool with 17 connections.
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:info Starting a postgresql pool with 17 connections.
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query TRUNCATE TABLE "Reservation" RESTART IDENTITY CASCADE;
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query TRUNCATE TABLE "Review" RESTART IDENTITY CASCADE;
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query TRUNCATE TABLE "Pricing" RESTART IDENTITY CASCADE;
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query TRUNCATE TABLE "ChargingStation" RESTART IDENTITY CASCADE;
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query TRUNCATE TABLE "Location" RESTART IDENTITY CASCADE;
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query TRUNCATE TABLE "User" RESTART IDENTITY CASCADE;
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query SELECT "public"."User"."id", "public"."User"."email", "public"."User"."passwordHash", "public"."User"."firstName", "public"."User"."lastName", "public"."User"."phone", "public"."User"."address", "public"."User"."postalCode", "public"."User"."city", "public"."User"."isValidated", "public"."User"."isActive", "public"."User"."validationCode", "public"."User"."avatarUrl", "public"."User"."createdAt", "public"."User"."updatedAt", "public"."User"."roles"::text[] FROM "public"."User" WHERE ("public"."User"."email" = $1 AND 1=1) LIMIT $2 OFFSET $3
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query INSERT INTO "public"."User" ("email","passwordHash","firstName","lastName","phone","isValidated","isActive","validationCode","createdAt","updatedAt","roles") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CAST($11::text[] AS "public"."UserRole"[])) RETURNING "public"."User"."id", "public"."User"."email", "public"."User"."firstName", "public"."User"."lastName", "public"."User"."roles"::text[]
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query UPDATE "public"."User" SET "isValidated" = $1, "updatedAt" = $2 WHERE ("public"."User"."email" = $3 AND 1=1) RETURNING "public"."User"."id", "public"."User"."email", "public"."User"."passwordHash", "public"."User"."firstName", "public"."User"."lastName", "public"."User"."phone", "public"."User"."address", "public"."User"."postalCode", "public"."User"."city", "public"."User"."isValidated", "public"."User"."isActive", "public"."User"."validationCode", "public"."User"."avatarUrl", "public"."User"."createdAt", "public"."User"."updatedAt", "public"."User"."roles"::text[]
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query SELECT "public"."User"."id", "public"."User"."email", "public"."User"."passwordHash", "public"."User"."firstName", "public"."User"."lastName", "public"."User"."roles"::text[], "public"."User"."isActive", "public"."User"."isValidated" FROM "public"."User" WHERE ("public"."User"."email" = $1 AND 1=1) LIMIT $2 OFFSET $3
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query SELECT "public"."User"."id", "public"."User"."email", "public"."User"."passwordHash", "public"."User"."firstName", "public"."User"."lastName", "public"."User"."phone", "public"."User"."address", "public"."User"."postalCode", "public"."User"."city", "public"."User"."isValidated", "public"."User"."isActive", "public"."User"."validationCode", "public"."User"."avatarUrl", "public"."User"."createdAt", "public"."User"."updatedAt", "public"."User"."roles"::text[] FROM "public"."User" WHERE ("public"."User"."email" = $1 AND 1=1) LIMIT $2 OFFSET $3
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query SELECT "public"."User"."id", "public"."User"."email", "public"."User"."firstName", "public"."User"."lastName", "public"."User"."roles"::text[], "public"."User"."isActive" FROM "public"."User" WHERE ("public"."User"."id" = $1 AND 1=1) LIMIT $2 OFFSET $3
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query INSERT INTO "public"."Location" ("userId","address","postalCode","city","latitude","longitude","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING "public"."Location"."id", "public"."Location"."userId", "public"."Location"."address", "public"."Location"."postalCode", "public"."Location"."city", "public"."Location"."latitude", "public"."Location"."longitude", "public"."Location"."createdAt", "public"."Location"."updatedAt"
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query BEGIN
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query INSERT INTO "public"."ChargingStation" ("locationId","name","powerKva","connectorType","isOnStand","latitude","longitude","city","isActive","isAvailable","createdAt","updatedAt") VALUES ($1,$2,$3,CAST($4::text AS "public"."ConnectorType"),$5,$6,$7,$8,$9,$10,$11,$12) RETURNING "public"."ChargingStation"."id"
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:query ROLLBACK
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+  console.log
+    prisma:error 
+    Invalid `this.prisma.chargingStation.create()` invocation in
+    C:\Users\marti\Desktop\Frontend_V6_Final\Backend_BusinessCase\src\modules\stations\stations.service.ts:44:63
+    
+      41 });
+      42 
+      43 // Cr├®er la charging station
+    ÔåÆ 44 const chargingStation = await this.prisma.chargingStation.create(
+    Error occurred during query execution:
+    ConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: "22P02", message: "invalid input value for enum \"ConnectorType\": \"TYPE2S\"", severity: "ERROR", detail: None, column: None, hint: None }), transient: false })
+
+      at Object.zc (../node_modules/@prisma/internals/src/logger.ts:13:11)
+
+[Nest] 11644  - 02/01/2026 21:30:42   ERROR [ExceptionsHandler] PrismaClientUnknownRequestError: 
+Invalid `this.prisma.chargingStation.create()` invocation in
+C:\Users\marti\Desktop\Frontend_V6_Final\Backend_BusinessCase\src\modules\stations\stations.service.ts:44:63
+
+  41 });
+  42 
+  43 // Cr├®er la charging station
+ÔåÆ 44 const chargingStation = await this.prisma.chargingStation.create(
+Error occurred during query execution:
+ConnectorError(ConnectorError { user_facing_error: None, kind: QueryError(PostgresError { code: "22P02", message: "invalid input value for enum \"ConnectorType\": \"TYPE2S\"", severity: "ERROR", detail: None, column: None, hint: None }), transient: false })
+    at ei.handleRequestError (C:\Users\marti\Desktop\Frontend_V6_Final\Backend_BusinessCase\node_modules\@prisma\client\src\runtime\RequestHandler.ts:237:13)
+    at ei.handleAndLogRequestError (C:\Users\marti\Desktop\Frontend_V6_Final\Backend_BusinessCase\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at ei.request (C:\Users\marti\Desktop\Frontend_V6_Final\Backend_BusinessCase\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at a (C:\Users\marti\Desktop\Frontend_V6_Final\Backend_BusinessCase\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:833:24)
+    at StationsService.create (C:\Users\marti\Desktop\Frontend_V6_Final\Backend_BusinessCase\src\modules\stations\stations.service.ts:44:29)
+    at C:\Users\marti\Desktop\Frontend_V6_Final\Backend_BusinessCase\node_modules\@nestjs\core\router\router-execution-context.js:46:28
+    at C:\Users\marti\Desktop\Frontend_V6_Final\Backend_BusinessCase\node_modules\@nestjs\core\router\router-proxy.js:9:17 {
+  clientVersion: '6.19.1'
+}
+FAIL test/roles.e2e-spec.ts (5.819 s)
+  Roles & Permissions (e2e)
+    ├ù should promote Client to Owner while KEEPING Client role (1229 ms)
+
+  ÔùÅ Roles & Permissions (e2e) ÔÇ║ should promote Client to Owner while KEEPING Client role
+
+    expected 201 "Created", got 500 "Internal Server Error"
+
+      78 |                 longitude: 2.3
+      79 |             })
+    > 80 |             .expect(201);
+         |              ^
+      81 |
+      82 |         // 3. Verify Roles Accumulation
+      83 |         const userAfter = await prisma.user.findUnique({ where: { email: 'role_test@test.com' } });
+
+      at Object.<anonymous> (roles.e2e-spec.ts:80:14)
+      ----
+      at Test._assertStatus (../node_modules/supertest/lib/test.js:309:14)
+      at ../node_modules/supertest/lib/test.js:365:13
+      at Test._assertFunction (../node_modules/supertest/lib/test.js:342:13)
+      at Test.assert (../node_modules/supertest/lib/test.js:195:23)
+      at localAssert (../node_modules/supertest/lib/test.js:138:14)
+      at Server.<anonymous> (../node_modules/supertest/lib/test.js:152:11)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        6.088 s, estimated 8 s
+Ran all test suites matching /roles/i.

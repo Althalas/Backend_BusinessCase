@@ -1,0 +1,152 @@
+name: Backend CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ========================
+  # Testing & Linting
+  # ========================
+  test:
+    name: Unit Tests & Lint
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: electricity_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run database migrations
+        run: npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/electricity_test
+
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Run unit tests with coverage
+        run: |
+          npm test -- --coverage --passWithNoTests
+          # Fix absolute paths for SonarCloud
+          sed -i "s|$PWD/||g" coverage/lcov.info
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/electricity_test
+          JWT_SECRET: test-jwt-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/lcov.info
+
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/electricity_test
+          JWT_SECRET: test-jwt-secret
+          JWT_REFRESH_SECRET: test-refresh-secret
+          MAIL_HOST: localhost
+          MAIL_PORT: 1025
+          MAIL_USER: user
+          MAIL_PASSWORD: pwd
+          MAIL_FROM: noreply@test.com
+          STRIPE_SECRET_KEY: sk_test_dummy
+          STRIPE_WEBHOOK_SECRET: whsec_dummy
+          FRONTEND_URL: http://localhost:4200
+
+
+
+      - name: Build application
+        run: npm run build
+
+  # ========================
+  # Code Quality Analysis
+  # ========================
+  sonarcloud:
+    name: SonarCloud Scan
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v4 # Assuming we might upload coverage in test job, but currently running in same job?
+        with:
+          name: coverage-report
+          path: coverage
+        continue-on-error: true
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+
+  # ========================
+  # Docker Build & Push
+  # ========================
+  build-docker:
+    name: Build Docker Image
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/electricity-backend:latest
+            ${{ secrets.DOCKER_USERNAME }}/electricity-backend:${{ github.sha }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/electricity-backend:latest
+          cache-to: type=inline
