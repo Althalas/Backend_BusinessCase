@@ -189,7 +189,7 @@ export class MailService {
     // On envoie donc DEPUIS notre système, avec REPLY-TO l'utilisateur.
     const fromAddress = this.useResend
       ? this.configService.get("RESEND_FROM_EMAIL") ||
-        "contact@resend.dev"
+        "onboarding@resend.dev"
       : `"${dto.name}" <${dto.email}>`; // SMTP permet parfois le spoofing, sinon utiliser system address
 
     try {
