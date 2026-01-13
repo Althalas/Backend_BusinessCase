@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { Decimal } from "@prisma/client/runtime/library";
 
 const PDFDocument = require("pdfkit");
@@ -31,6 +31,8 @@ interface ReservationReceiptData {
 
 @Injectable()
 export class ReceiptsService {
+  private readonly logger = new Logger(ReceiptsService.name);
+
   /**
    * Génère un fichier PDF pour un reçu de réservation.
    * Construit le document avec l'en-tête, les détails de la réservation,
@@ -142,7 +144,7 @@ export class ReceiptsService {
       doc.end();
       return doc;
     } catch (error) {
-      console.error("Erreur lors de la génération du PDF de reçu :", error);
+      this.logger.error("Erreur lors de la génération du PDF de reçu", error);
 
       if (doc) {
         try {

@@ -17,6 +17,7 @@ import {
 } from "@nestjs/swagger";
 import { ReviewsService } from "./reviews.service";
 import { CreateReviewDto } from "./dto/create-review.dto";
+import { ReviewResponseDto, ReviewMessageDto } from "./dto/review-response.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { AuthenticatedUser } from "../../common/interfaces";
@@ -44,7 +45,7 @@ export class ReviewsController {
   async create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateReviewDto,
-  ): Promise<any> {
+  ): Promise<ReviewResponseDto> {
     return this.reviewsService.create(user, dto);
   }
 
@@ -60,7 +61,7 @@ export class ReviewsController {
    * Récupère la liste des avis que l'utilisateur a rédigés.
    * @param userId ID de l'utilisateur.
    */
-  async getGivenReviews(@CurrentUser("id") userId: number): Promise<any> {
+  async getGivenReviews(@CurrentUser("id") userId: number): Promise<ReviewResponseDto[]> {
     return this.reviewsService.findGivenReviews(userId);
   }
 
@@ -73,7 +74,7 @@ export class ReviewsController {
    * Récupère les avis laissés sur les stations appartenant à l'utilisateur (pour les Propriétaires).
    * @param userId ID du propriétaire.
    */
-  async getMyStationReviews(@CurrentUser("id") userId: number): Promise<any> {
+  async getMyStationReviews(@CurrentUser("id") userId: number): Promise<ReviewResponseDto[]> {
     return this.reviewsService.findByOwner(userId);
   }
 
@@ -87,7 +88,7 @@ export class ReviewsController {
    */
   async findByStation(
     @Param("stationId", ParseIntPipe) stationId: number,
-  ): Promise<any> {
+  ): Promise<ReviewResponseDto[]> {
     return this.reviewsService.findByStation(stationId);
   }
 
@@ -108,7 +109,7 @@ export class ReviewsController {
     @Param("id", ParseIntPipe) id: number,
     @CurrentUser("id") userId: number,
     @Body() dto: Partial<CreateReviewDto>,
-  ): Promise<any> {
+  ): Promise<ReviewResponseDto> {
     return this.reviewsService.update(id, userId, dto);
   }
 
@@ -127,7 +128,7 @@ export class ReviewsController {
   async delete(
     @Param("id", ParseIntPipe) id: number,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<any> {
+  ): Promise<ReviewMessageDto> {
     return this.reviewsService.delete(id, user.id, user.roles);
   }
 
@@ -149,7 +150,7 @@ export class ReviewsController {
   async deleteMyReviewOnStation(
     @Param("stationId", ParseIntPipe) stationId: number,
     @CurrentUser("id") userId: number,
-  ): Promise<any> {
+  ): Promise<ReviewMessageDto> {
     return this.reviewsService.deleteByStationAndUser(stationId, userId);
   }
 }

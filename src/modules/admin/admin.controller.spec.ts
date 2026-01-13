@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AdminController } from "./admin.controller";
 import { AdminService } from "./admin.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { UsersService } from "../users/users.service";
 import { NotFoundException } from "@nestjs/common";
 
 describe("AdminController", () => {
@@ -26,6 +27,10 @@ describe("AdminController", () => {
     },
   };
 
+  const mockUsersService = {
+    anonymizeUser: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AdminController],
@@ -34,6 +39,10 @@ describe("AdminController", () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: UsersService,
+          useValue: mockUsersService,
         },
       ],
     }).compile();

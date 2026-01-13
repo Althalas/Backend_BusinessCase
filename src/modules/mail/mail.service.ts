@@ -17,6 +17,21 @@ export class MailService {
   private resendClient: Resend | null = null;
   private useResend = false;
 
+  /**
+   * Échappe les caractères HTML pour prévenir les attaques XSS.
+   * OWASP A03:2021 - Injection Prevention
+   */
+  private escapeHtml(text: string): string {
+    const htmlEntities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#x27;",
+    };
+    return text.replace(/[&<>"']/g, (char) => htmlEntities[char]);
+  }
+
   constructor(private configService: ConfigService) {
     this.initMailProvider();
   }
@@ -176,12 +191,19 @@ export class MailService {
 
     const subject = `[Contact] ${dto.subject}`;
     const textContent = `Nouveau message de ${dto.name} (${dto.email}):\n\n${dto.message}`;
+
+    // Échappement HTML pour prévenir XSS (OWASP A03:2021)
+    const safeName = this.escapeHtml(dto.name);
+    const safeEmail = this.escapeHtml(dto.email);
+    const safeSubject = this.escapeHtml(dto.subject);
+    const safeMessage = this.escapeHtml(dto.message).replace(/\n/g, "<br>");
+
     const htmlContent = `
           <h3>Nouveau message de contact</h3>
-          <p><strong>De:</strong> ${dto.name} (${dto.email})</p>
-          <p><strong>Sujet:</strong> ${dto.subject}</p>
+          <p><strong>De:</strong> ${safeName} (${safeEmail})</p>
+          <p><strong>Sujet:</strong> ${safeSubject}</p>
           <hr />
-          <p>${dto.message.replace(/\n/g, "<br>")}</p>
+          <p>${safeMessage}</p>
         `;
 
     // Note pour Resend : on doit vérifier un domaine expéditeur.

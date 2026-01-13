@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
 import { Prisma } from "@prisma/client";
@@ -190,7 +191,7 @@ export class UsersService {
       user.passwordHash,
     );
     if (!isPasswordValid) {
-      throw new ConflictException("Le mot de passe actuel est incorrect.");
+      throw new BadRequestException("Le mot de passe actuel est incorrect.");
     }
 
     const newPasswordHash = await bcrypt.hash(dto.newPassword, 12);
@@ -255,8 +256,101 @@ export class UsersService {
         firstName: true,
         lastName: true,
         avatarUrl: true,
+        roles: true,
       },
     });
+  }
+
+  /**
+   * Anonymise un utilisateur (RGPD - Droit à l'effacement, Article 17).
+   *
+   * Cette méthode :
+   * 1. Anonymise les données personnelles (email, nom, téléphone, adresse)
+   * 2. Supprime les véhicules, favoris et avis de l'utilisateur
+   * 3. Conserve l'historique des réservations (obligation légale comptable)
+   * 4. Désactive les bornes de l'utilisateur (soft-delete)
+   *
+   * @param id ID de l'utilisateur à anonymiser.
+   * @param deletedBy Qui a initié la suppression ("self" ou "admin").
+   * @returns Confirmation de l'anonymisation.
+   */
+  async anonymizeUser(id: number, deletedBy: "self" | "admin" = "self") {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        vehicles: true,
+        favorites: true,
+        reviews: true,
+        locations: {
+          include: { chargingStations: true },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException("Utilisateur introuvable");
+    }
+
+    if (user.deletedAt) {
+      throw new ConflictException("L'utilisateur a déjà été supprimé");
+    }
+
+    // Utiliser une transaction pour garantir l'intégrité
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Supprimer les véhicules
+      await tx.vehicle.deleteMany({ where: { userId: id } });
+
+      // 2. Supprimer les favoris
+      await tx.favoriteStation.deleteMany({ where: { userId: id } });
+
+      // 3. Supprimer les avis
+      await tx.review.deleteMany({ where: { userId: id } });
+
+      // 4. Supprimer les signalements créés par l'utilisateur
+      await tx.report.deleteMany({ where: { reporterId: id } });
+
+      // 5. Soft-delete des bornes de l'utilisateur
+      for (const location of user.locations) {
+        for (const station of location.chargingStations) {
+          await tx.chargingStation.update({
+            where: { id: station.id },
+            data: {
+              deletedAt: new Date(),
+              deletionReason: "Suppression du compte propriétaire (RGPD)",
+              deletedBy: deletedBy === "self" ? "user_self_delete" : "admin",
+              isActive: false,
+            },
+          });
+        }
+      }
+
+      // 6. Anonymiser les données personnelles
+      const anonymizedEmail = `deleted_${id}_${Date.now()}@anonymized.local`;
+      await tx.user.update({
+        where: { id },
+        data: {
+          email: anonymizedEmail,
+          firstName: "Utilisateur",
+          lastName: "Supprimé",
+          phone: "0000000000",
+          address: null,
+          postalCode: null,
+          city: null,
+          avatarUrl: null,
+          passwordHash: "ANONYMIZED",
+          validationCode: null,
+          isActive: false,
+          isValidated: false,
+          deletedAt: new Date(),
+        },
+      });
+    });
+
+    return {
+      message:
+        "Compte supprimé avec succès. Vos données personnelles ont été anonymisées conformément au RGPD.",
+      deletedAt: new Date().toISOString(),
+    };
   }
 
   /**

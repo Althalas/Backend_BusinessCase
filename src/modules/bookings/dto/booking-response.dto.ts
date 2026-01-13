@@ -4,14 +4,23 @@ import {
   Reservation,
   ChargingStation,
   Payment,
+  User,
+  Location,
+  Pricing,
 } from "@prisma/client";
 
 /**
  * Type helper pour les réservations incluant les relations optionnelles.
+ * Accepte les types Prisma avec relations imbriquées de toute profondeur.
  */
-type ReservationWithRelations = Partial<Reservation> & {
-  chargingStation?: Partial<ChargingStation>;
-  payment?: Partial<Payment>;
+export type ReservationWithRelations = Reservation & {
+  chargingStation?: (ChargingStation & {
+    location?: Location & { user?: Partial<User> };
+    pricing?: Pricing[];
+  }) | null;
+  payment?: Payment | null;
+  renter?: Partial<User> | null;
+  vehicle?: { id: number; brand?: string; model?: string } | null;
 };
 
 /**
@@ -67,17 +76,16 @@ export class BookingResponseDto {
     reservation: ReservationWithRelations,
   ): BookingResponseDto {
     return {
-      id: reservation.id!,
-      stationId: reservation.chargingStationId!,
-      userId: reservation.renterId!,
-      startTime: reservation.startDatetime?.toISOString() || "",
-      endTime: reservation.endDatetime?.toISOString() || "",
+      id: reservation.id,
+      stationId: reservation.chargingStationId,
+      userId: reservation.renterId,
+      startTime: reservation.startDatetime.toISOString(),
+      endTime: reservation.endDatetime.toISOString(),
       totalPrice: Number(reservation.totalAmount || 0),
-      status: reservation.status!,
-      station: reservation.chargingStation,
-      payment: reservation.payment,
-      createdAt:
-        reservation.createdAt?.toISOString() || new Date().toISOString(),
+      status: reservation.status,
+      station: reservation.chargingStation ?? undefined,
+      payment: reservation.payment ?? undefined,
+      createdAt: reservation.createdAt?.toISOString() ?? new Date().toISOString(),
     };
   }
 

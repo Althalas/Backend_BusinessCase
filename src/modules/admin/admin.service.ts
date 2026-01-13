@@ -1,5 +1,11 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+} from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { UsersService } from "../users/users.service";
 import { UserRole, Prisma } from "@prisma/client";
 import { AuthenticatedUser } from "../../common/interfaces";
 
@@ -26,7 +32,10 @@ export interface RejectReservationDto {
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private usersService: UsersService,
+  ) {}
 
   async getStats() {
     const [
@@ -258,7 +267,7 @@ export class AdminService {
     const isOwner = reservation.chargingStation.location.userId === user.id;
 
     if (!isAdmin && !isOwner) {
-      throw new NotFoundException("Non autorisé à approuver cette réservation");
+      throw new ForbiddenException("Non autorisé à approuver cette réservation");
     }
 
     return this.prisma.reservation.update({
@@ -290,7 +299,7 @@ export class AdminService {
     const isOwner = reservation.chargingStation.location.userId === user.id;
 
     if (!isAdmin && !isOwner) {
-      throw new NotFoundException("Non autorisé à refuser cette réservation");
+      throw new ForbiddenException("Non autorisé à refuser cette réservation");
     }
 
     return this.prisma.reservation.update({
@@ -304,8 +313,9 @@ export class AdminService {
   }
 
   /**
-   * Soft-delete un utilisateur (RGPD compliant).
-   * Les réservations et historique sont conservés.
+   * Désactive temporairement un utilisateur (ban).
+   * Les données personnelles sont conservées pour permettre une restauration.
+   * Note : Pour une suppression RGPD conforme, utiliser anonymizeUserAsAdmin().
    */
   async softDeleteUser(id: number, reason: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
@@ -314,8 +324,8 @@ export class AdminService {
       throw new NotFoundException("Utilisateur introuvable");
     }
 
-    if ((user as any).deletedAt) {
-      throw new NotFoundException("L'utilisateur est déjà supprimé");
+    if (user.deletedAt) {
+      throw new ConflictException("L'utilisateur est déjà supprimé");
     }
 
     return this.prisma.user.update({
@@ -344,8 +354,8 @@ export class AdminService {
       throw new NotFoundException("Utilisateur introuvable");
     }
 
-    if (!(user as any).deletedAt) {
-      throw new NotFoundException("L'utilisateur n'est pas supprimé");
+    if (!user.deletedAt) {
+      throw new ConflictException("L'utilisateur n'est pas supprimé");
     }
 
     return this.prisma.user.update({
@@ -421,5 +431,15 @@ export class AdminService {
         totalPages: Math.ceil(total / limitNumber),
       },
     };
+  }
+
+  /**
+   * Suppression RGPD d'un utilisateur par un administrateur (Article 17).
+   * Anonymise toutes les données personnelles de manière irréversible.
+   * @param id ID de l'utilisateur à anonymiser.
+   * @returns Confirmation de l'anonymisation.
+   */
+  async anonymizeUserAsAdmin(id: number) {
+    return this.usersService.anonymizeUser(id, "admin");
   }
 }
