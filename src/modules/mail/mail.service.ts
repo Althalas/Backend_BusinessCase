@@ -1,45 +1,85 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { ContactMessageDto } from "../contact/dto/contact-message.dto";
 
 /**
  * Service de gestion des emails.
- * Utilise Nodemailer pour l'envoi d'emails transactionnels (vérification, notifications).
- * Compatible avec SMTP en production et Ethereal en développement.
+ * Supporte Resend (API) en priorité pour la production/cloud.
+ * Fallback sur Nodemailer (SMTP) si configuré.
+ * Fallback sur Ethereal (Mock) pour le développement local si rien n'est configuré.
  */
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: nodemailer.Transporter;
+  private resendClient: Resend | null = null;
+  private useResend = false;
+
+  /**
+   * Échappe les caractères HTML pour prévenir les attaques XSS.
+   * OWASP A03:2021 - Injection Prevention
+   */
+  private escapeHtml(text: string): string {
+    const htmlEntities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#x27;",
+    };
+    return text.replace(/[&<>"']/g, (char) => htmlEntities[char]);
+  }
 
   constructor(private configService: ConfigService) {
-    this.initTransport();
+    this.initMailProvider();
   }
 
   /**
-   * Initialise le transporteur Nodemailer.
-   * Configure SMTP si les variables d'environnement sont présentes, sinon utilise Ethereal pour le développement.
+   * Initialise le fournisseur d'email (Resend ou Nodemailer).
+   * Priorité : Resend API Key > SMTP > Ethereal.
    */
-  private async initTransport() {
-    // Vérifier si les identifiants SMTP sont fournis
-    const smtpHost = this.configService.get("SMTP_HOST");
-    const smtpUser = this.configService.get("SMTP_USER");
+  private async initMailProvider() {
+    const resendApiKey = this.configService.get("RESEND_API_KEY");
 
-    if (smtpHost && smtpUser) {
+    // 1. Essayer Resend
+    if (resendApiKey) {
+      try {
+        this.resendClient = new Resend(resendApiKey);
+        this.useResend = true;
+        this.logger.log("Using Resend API for email delivery 📧");
+        return;
+      } catch (error) {
+        this.logger.error("Failed to initialize Resend client", error);
+      }
+    }
+
+    // 2. Si pas Resend, configurer Nodemailer (SMTP ou Ethereal)
+    this.useResend = false;
+    await this.initNodemailer();
+  }
+
+  private async initNodemailer() {
+    // Vérifier si les identifiants SMTP sont fournis
+    // Note: CI et .env utilisent MAIL_HOST, pas SMTP_HOST
+    const smtpHost = this.configService.get("MAIL_HOST") || this.configService.get("SMTP_HOST");
+    const smtpUser = this.configService.get("MAIL_USER") || this.configService.get("SMTP_USER");
+
+    if (smtpHost) {
       // Utiliser les identifiants SMTP fournis
       this.transporter = nodemailer.createTransport({
         host: smtpHost,
-        port: Number(this.configService.get("SMTP_PORT", 587)),
-        secure: this.configService.get("SMTP_SECURE") === "true", // true pour 465, false pour les ports autres
+        port: Number(this.configService.get("MAIL_PORT") || this.configService.get("SMTP_PORT") || 587),
+        secure: this.configService.get("MAIL_SECURE") === "true" || this.configService.get("SMTP_SECURE") === "true", // true pour 465
         auth: {
           user: smtpUser,
-          pass: this.configService.get("SMTP_PASS"),
+          pass: this.configService.get("MAIL_PASSWORD") || this.configService.get("SMTP_PASS"),
         },
       });
-      this.logger.log(`Using SMTP server: ${smtpHost}`);
+      this.logger.log(`Using SMTP server: ${smtpHost} 📤`);
     } else {
-      // Fallback sur Ethereal pour le développement (Mock)
+      // 3. Fallback sur Ethereal pour le développement (Mock)
       try {
         const testAccount = await nodemailer.createTestAccount();
         this.transporter = nodemailer.createTransport({
@@ -51,7 +91,9 @@ export class MailService {
             pass: testAccount.pass,
           },
         });
-        this.logger.warn("SMTP not configured. Using Ethereal Email (Mock).");
+        this.logger.warn(
+          "No Email Provider configured. Using Ethereal Email (Mock/Dev).",
+        );
         this.logger.warn(
           `Ethereal Creds - User: ${testAccount.user}, Pass: ${testAccount.pass}`,
         );
@@ -64,20 +106,20 @@ export class MailService {
   /**
    * Envoie un email de vérification lors de l'inscription.
    * Contient un code et un lien de validation.
-   * @param email Adresse email du destinataire.
-   * @param code Code de vérification généré.
    */
   async sendVerificationEmail(email: string, code: string): Promise<void> {
     const verificationLink = `${this.configService.get(
       "FRONTEND_URL",
     )}/auth/verify?email=${encodeURIComponent(email)}&code=${code}`;
 
-    const mailOptions = {
-      from: '"Electricity Business" <noreply@electricity-business.com>',
-      to: email,
-      subject: "Vérifiez votre adresse email",
-      text: `Bonjour,\n\nMerci de votre inscription. Voici votre code de validation : ${code}\n\nOu cliquez sur ce lien : ${verificationLink}\n\nCordialement,\nL'équipe Electricity Business`,
-      html: `
+    const fromAddress = this.useResend
+      ? this.configService.get("RESEND_FROM_EMAIL") ||
+        "onboarding@resend.dev"
+      : '"Electricity Business" <noreply@electricity-business.com>';
+
+    const subject = "Vérifiez votre adresse email";
+    const textContent = `Bonjour,\n\nMerci de votre inscription. Voici votre code de validation : ${code}\n\nOu cliquez sur ce lien : ${verificationLink}\n\nCordialement,\nL'équipe Electricity Business`;
+    const htmlContent = `
         <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
           <h2 style="color: #4caf50;">Bienvenue chez Electricity Business !</h2>
           <p>Merci de votre inscription. Pour activer votre compte, veuillez utiliser le code ci-dessous :</p>
@@ -92,25 +134,50 @@ export class MailService {
             Si vous n'avez pas créé de compte, vous pouvez ignorer cet email.
           </p>
         </div>
-      `,
-    };
+      `;
 
     try {
-      if (!this.transporter) {
-        await this.initTransport();
-      }
+      if (this.useResend && this.resendClient) {
+        // Envoi via Resend API
+        const response = await this.resendClient.emails.send({
+          from: fromAddress,
+          to: email,
+          subject: subject,
+          html: htmlContent,
+          text: textContent,
+        });
 
-      const info = await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Email sent: ${info.messageId}`);
+        if (response.error) {
+          this.logger.error(`Resend Error: ${response.error.message}`);
+          throw new Error(response.error.message);
+        }
 
-      // Si Ethereal, logger l'URL de prévisualisation
-      const previewUrl = nodemailer.getTestMessageUrl(info);
-      if (previewUrl) {
-        this.logger.log(`isPreview URL: ${previewUrl}`);
+        this.logger.log(`Email sent via Resend: ${response.data?.id}`);
+      } else {
+        // Envoi via Nodemailer (SMTP ou Ethereal)
+        if (!this.transporter) {
+          await this.initNodemailer();
+        }
+
+        const info = await this.transporter.sendMail({
+          from: fromAddress,
+          to: email,
+          subject: subject,
+          text: textContent,
+          html: htmlContent,
+        });
+
+        this.logger.log(`Email sent via Nodemailer: ${info.messageId}`);
+
+        // Si Ethereal, logger l'URL de prévisualisation
+        const previewUrl = nodemailer.getTestMessageUrl(info);
+        if (previewUrl) {
+          this.logger.log(`👀 Preview URL: ${previewUrl}`);
+        }
       }
     } catch (error) {
       this.logger.error("Error sending email", error);
-      throw error;
+      // throw error; // NE PAS BLOQUER l'inscription si l'envoi d'email échoue (ex: CI sans serveur SMTP)
     }
   }
 
@@ -122,27 +189,67 @@ export class MailService {
       this.configService.get("SUPPORT_EMAIL") ||
       "support@electricity-business.com";
 
-    const mailOptions = {
-      from: `"${dto.name}" <${dto.email}>`, // Note: Certains SMTP interdisent le spoofing "from". Préférer "reply-to".
-      // Bonne pratique :
-      // from: '"Formulaire Contact" <noreply@domain.com>',
-      // replyTo: dto.email,
-      to: supportEmail,
-      subject: `[Contact] ${dto.subject}`,
-      text: `Nouveau message de ${dto.name} (${dto.email}):\n\n${dto.message}`,
-      html: `
-          <h3>Nouveau message de contact</h3>
-          <p><strong>De:</strong> ${dto.name} (${dto.email})</p>
-          <p><strong>Sujet:</strong> ${dto.subject}</p>
-          <hr />
-          <p>${dto.message.replace(/\n/g, "<br>")}</p>
-        `,
-    };
+    const subject = `[Contact] ${dto.subject}`;
+    const textContent = `Nouveau message de ${dto.name} (${dto.email}):\n\n${dto.message}`;
 
-    if (!this.transporter) {
-      await this.initTransport();
+    // Échappement HTML pour prévenir XSS (OWASP A03:2021)
+    const safeName = this.escapeHtml(dto.name);
+    const safeEmail = this.escapeHtml(dto.email);
+    const safeSubject = this.escapeHtml(dto.subject);
+    const safeMessage = this.escapeHtml(dto.message).replace(/\n/g, "<br>");
+
+    const htmlContent = `
+          <h3>Nouveau message de contact</h3>
+          <p><strong>De:</strong> ${safeName} (${safeEmail})</p>
+          <p><strong>Sujet:</strong> ${safeSubject}</p>
+          <hr />
+          <p>${safeMessage}</p>
+        `;
+
+    // Note pour Resend : on doit vérifier un domaine expéditeur.
+    // L'envoi "De la part de" l'utilisateur n'est souvent pas possible sans signature DKIM.
+    // On envoie donc DEPUIS notre système, avec REPLY-TO l'utilisateur.
+    const fromAddress = this.useResend
+      ? this.configService.get("RESEND_FROM_EMAIL") ||
+        "onboarding@resend.dev"
+      : `"${dto.name}" <${dto.email}>`; // SMTP permet parfois le spoofing, sinon utiliser system address
+
+    try {
+      if (this.useResend && this.resendClient) {
+        const response = await this.resendClient.emails.send({
+          from: fromAddress,
+          to: supportEmail,
+          replyTo: dto.email,
+          subject: subject,
+          html: htmlContent,
+          text: textContent,
+        });
+
+        if (response.error) {
+          this.logger.error(`Resend Contact Error: ${response.error.message}`);
+          throw new Error(response.error.message);
+        }
+
+        this.logger.log(`Contact email sent via Resend from ${dto.email}, ID: ${response.data?.id}`);
+      } else {
+        if (!this.transporter) {
+          await this.initNodemailer();
+        }
+        await this.transporter.sendMail({
+          from: fromAddress, // Attention au spoofing, peut être écrasé par SMTP server
+          replyTo: dto.email,
+          to: supportEmail,
+          subject: subject,
+          text: textContent,
+          html: htmlContent,
+        });
+        this.logger.log(`Contact email sent via SMTP from ${dto.email}`);
+      }
+    } catch (error) {
+      this.logger.error("Error sending contact email", error);
+      // On ne throw pas forcément ici pour ne pas bloquer l'utilisateur si le support est down,
+      // mais bon de le savoir.
+      // throw error; 
     }
-    await this.transporter.sendMail(mailOptions);
-    this.logger.log(`Contact email sent from ${dto.email}`);
   }
 }

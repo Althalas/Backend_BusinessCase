@@ -176,6 +176,26 @@ export class UsersController {
     return this.usersService.changePassword(userId, dto);
   }
 
+  @Delete("me")
+  @ApiOperation({
+    summary: "Supprimer son compte (RGPD - Droit à l'effacement)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Compte supprimé et données anonymisées.",
+  })
+  @ApiResponse({ status: 404, description: "Utilisateur introuvable." })
+  @ApiResponse({ status: 409, description: "Compte déjà supprimé." })
+  /**
+   * Supprime le compte de l'utilisateur connecté (RGPD Article 17).
+   * Les données personnelles sont anonymisées, l'historique des réservations est conservé.
+   * @param userId ID de l'utilisateur.
+   * @returns Confirmation de suppression.
+   */
+  async deleteMyAccount(@CurrentUser("id") userId: number) {
+    return this.usersService.anonymizeUser(userId, "self");
+  }
+
   @Patch(":id")
   @UseGuards(RolesGuard)
   @Roles(UserRole.admin)

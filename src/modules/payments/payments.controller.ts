@@ -9,6 +9,7 @@ import {
   UseGuards,
   RawBodyRequest,
   ParseIntPipe,
+  BadRequestException,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -80,7 +81,7 @@ export class PaymentsController {
     @Req() req: RawBodyRequest<Request>,
   ) {
     if (!req.rawBody) {
-      throw new Error("Le corps brut (raw body) est requis pour la validation du webhook");
+      throw new BadRequestException("Le corps brut (raw body) est requis pour la validation du webhook");
     }
     return this.paymentsService.handleWebhook(signature, req.rawBody);
   }

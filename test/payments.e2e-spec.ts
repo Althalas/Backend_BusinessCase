@@ -103,9 +103,16 @@ describe("PaymentsController (e2e)", () => {
     stationId = stationRes.body.id;
 
     // 4. Create Reservation (as Client)
-    // Need to be at least 30 mins in future and duration >= 30 mins
-    const startTime = new Date(Date.now() + 1000 * 60 * 60).toISOString(); // +1 hour
-    const endTime = new Date(Date.now() + 1000 * 60 * 120).toISOString(); // +2 hours
+    // Safe fixed time: Tomorrow at 10:00 AM
+    const now = new Date();
+    const startDate = new Date(now);
+    startDate.setDate(startDate.getDate() + 1);
+    startDate.setHours(10, 0, 0, 0);
+    const endDate = new Date(startDate);
+    endDate.setHours(endDate.getHours() + 2);
+
+    const startTime = startDate.toISOString();
+    const endTime = endDate.toISOString();
 
     const bookingRes = await request(app.getHttpServer())
       .post("/bookings")
@@ -114,7 +121,7 @@ describe("PaymentsController (e2e)", () => {
         stationId,
         startTime,
         endTime,
-        vehicleId: null, // Optional
+        // vehicleId: null, // Optional
       })
       .expect(201);
     reservationId = bookingRes.body.id;

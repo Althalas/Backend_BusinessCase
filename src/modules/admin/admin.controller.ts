@@ -200,27 +200,46 @@ export class AdminController {
   }
 
   @Delete("users/:id")
-  @ApiOperation({ summary: "Soft-delete un utilisateur (Admin)" })
-  @ApiResponse({ status: 200, description: "Utilisateur supprimé (soft)." })
+  @ApiOperation({ summary: "Désactiver temporairement un utilisateur (ban)" })
+  @ApiResponse({ status: 200, description: "Utilisateur désactivé." })
   @ApiResponse({ status: 404, description: "Utilisateur introuvable." })
   /**
-   * Soft-delete un utilisateur. Les données RGPD restent en base.
+   * Désactive temporairement un utilisateur (ban).
+   * Les données personnelles sont conservées pour restauration.
    */
   async softDeleteUser(
     @Param("id", ParseIntPipe) id: number,
-    @Body() dto: DeleteStationDtoImpl, // Reuse reason DTO
+    @Body() dto: DeleteStationDtoImpl,
   ) {
     return this.adminService.softDeleteUser(id, dto.reason);
   }
 
   @Patch("users/:id/restore")
-  @ApiOperation({ summary: "Restaurer un utilisateur supprimé (Admin)" })
+  @ApiOperation({ summary: "Restaurer un utilisateur désactivé (Admin)" })
   @ApiResponse({ status: 200, description: "Utilisateur restauré." })
   @ApiResponse({ status: 404, description: "Utilisateur introuvable." })
   /**
-   * Restaure un utilisateur soft-deleted.
+   * Restaure un utilisateur désactivé.
    */
   async restoreUser(@Param("id", ParseIntPipe) id: number) {
     return this.adminService.restoreUser(id);
+  }
+
+  @Delete("users/:id/gdpr")
+  @ApiOperation({
+    summary: "Supprimer définitivement un utilisateur (RGPD Article 17)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Utilisateur anonymisé conformément au RGPD.",
+  })
+  @ApiResponse({ status: 404, description: "Utilisateur introuvable." })
+  @ApiResponse({ status: 409, description: "Utilisateur déjà supprimé." })
+  /**
+   * Supprime définitivement un utilisateur et anonymise ses données (RGPD).
+   * Action irréversible.
+   */
+  async anonymizeUser(@Param("id", ParseIntPipe) id: number) {
+    return this.adminService.anonymizeUserAsAdmin(id);
   }
 }

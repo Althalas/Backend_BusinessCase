@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import Stripe from "stripe";
@@ -10,6 +11,7 @@ import { PaymentStatus } from "@prisma/client";
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
   private stripe: Stripe;
 
   /**
@@ -23,7 +25,7 @@ export class PaymentsService {
     this.stripe = new Stripe(
       this.configService.get("STRIPE_SECRET_KEY") || "",
       {
-        apiVersion: "2025-02-24.acacia",
+        apiVersion: this.configService.get("STRIPE_API_VERSION") as Stripe.LatestApiVersion,
       },
     );
   }
@@ -68,7 +70,7 @@ export class PaymentsService {
             return { clientSecret: intent.client_secret };
           }
         } catch (e) {
-          console.warn("Impossible de récupérer l'ancien intent Stripe", e);
+          this.logger.warn("Impossible de récupérer l'ancien intent Stripe", e);
         }
       }
 
@@ -94,7 +96,7 @@ export class PaymentsService {
 
         return { clientSecret: paymentIntent.client_secret };
       } catch (error) {
-        console.error("Erreur Réessai Stripe :", error);
+        this.logger.error("Erreur Réessai Stripe", error);
         throw new BadRequestException(
           "Impossible de recréer l'intention de paiement : " + error.message,
         );
@@ -124,7 +126,7 @@ export class PaymentsService {
 
       return { clientSecret: paymentIntent.client_secret };
     } catch (error) {
-      console.error("Erreur Création Stripe :", error);
+      this.logger.error("Erreur Création Stripe", error);
       throw new BadRequestException(
         "Échec de la création de l'intention de paiement : " + error.message,
       );
@@ -385,7 +387,7 @@ export class PaymentsService {
             : `Remboursement partiel (${refundPercentage}%) effectué - Annulation tardive`,
       };
     } catch (error) {
-      console.error("Erreur Remboursement Stripe :", error);
+      this.logger.error("Erreur Remboursement Stripe", error);
       throw new BadRequestException(
         "Échec du remboursement : " + error.message,
       );

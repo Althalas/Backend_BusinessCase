@@ -1,4 +1,8 @@
-import { Injectable } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateVehicleDto } from "./dto/create-vehicle.dto";
 import { UpdateVehicleDto } from "./dto/update-vehicle.dto";
@@ -39,40 +43,83 @@ export class VehiclesService {
   }
 
   /**
-   * Récupère un véhicule unique par son ID.
+   * Récupère un véhicule unique par son ID avec vérification de propriété.
    *
-   * @param id - ID du véhicule.
-   * @returns L'objet véhicule s'il existe.
+   * @param userId - ID de l'utilisateur.
+   * @param vehicleId - ID du véhicule.
+   * @returns L'objet véhicule s'il existe et appartient à l'utilisateur.
+   * @throws NotFoundException si le véhicule n'existe pas.
+   * @throws ForbiddenException si le véhicule n'appartient pas à l'utilisateur.
    */
-  findOne(id: number) {
-    return this.prisma.vehicle.findUnique({
-      where: { id },
+  async findOne(userId: number, vehicleId: number) {
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: vehicleId },
     });
+
+    if (!vehicle) {
+      throw new NotFoundException("Véhicule introuvable");
+    }
+
+    if (vehicle.userId !== userId) {
+      throw new ForbiddenException("Accès refusé à ce véhicule");
+    }
+
+    return vehicle;
   }
 
   /**
-   * Met à jour les informations d'un véhicule.
+   * Met à jour les informations d'un véhicule avec vérification de propriété.
    *
-   * @param id - ID du véhicule à modifier.
+   * @param userId - ID de l'utilisateur.
+   * @param vehicleId - ID du véhicule à modifier.
    * @param updateVehicleDto - Données à mettre à jour.
    * @returns Le véhicule mis à jour.
+   * @throws NotFoundException si le véhicule n'existe pas.
+   * @throws ForbiddenException si le véhicule n'appartient pas à l'utilisateur.
    */
-  update(id: number, updateVehicleDto: UpdateVehicleDto) {
+  async update(userId: number, vehicleId: number, updateVehicleDto: UpdateVehicleDto) {
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+    });
+
+    if (!vehicle) {
+      throw new NotFoundException("Véhicule introuvable");
+    }
+
+    if (vehicle.userId !== userId) {
+      throw new ForbiddenException("Accès refusé à ce véhicule");
+    }
+
     return this.prisma.vehicle.update({
-      where: { id },
+      where: { id: vehicleId },
       data: updateVehicleDto,
     });
   }
 
   /**
-   * Supprime un véhicule de la base de données.
+   * Supprime un véhicule de la base de données avec vérification de propriété.
    *
-   * @param id - ID du véhicule à supprimer.
+   * @param userId - ID de l'utilisateur.
+   * @param vehicleId - ID du véhicule à supprimer.
    * @returns Le véhicule supprimé.
+   * @throws NotFoundException si le véhicule n'existe pas.
+   * @throws ForbiddenException si le véhicule n'appartient pas à l'utilisateur.
    */
-  remove(id: number) {
+  async remove(userId: number, vehicleId: number) {
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+    });
+
+    if (!vehicle) {
+      throw new NotFoundException("Véhicule introuvable");
+    }
+
+    if (vehicle.userId !== userId) {
+      throw new ForbiddenException("Accès refusé à ce véhicule");
+    }
+
     return this.prisma.vehicle.delete({
-      where: { id },
+      where: { id: vehicleId },
     });
   }
 }

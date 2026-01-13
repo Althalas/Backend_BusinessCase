@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, ConnectorType } from "@prisma/client";
 import {
   Injectable,
   NotFoundException,
@@ -11,8 +11,21 @@ import { ConfigService } from "@nestjs/config";
 import Stripe from "stripe";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateBookingDto } from "./dto/create-booking.dto";
-import { BookingResponseDto } from "./dto/booking-response.dto";
+import { BookingResponseDto, ReservationWithRelations } from "./dto/booking-response.dto";
 import { ReservationStatus } from "@prisma/client";
+
+/**
+ * Matrice de compatibilité des connecteurs véhicule → borne.
+ * DOMESTIC est universel (prise renforcée, accepte tout véhicule).
+ * TYPE2 et TYPE2S sont intercompatibles.
+ */
+const CONNECTOR_COMPATIBILITY: Record<ConnectorType, ConnectorType[]> = {
+  TYPE2: [ConnectorType.TYPE2, ConnectorType.TYPE2S, ConnectorType.DOMESTIC],
+  TYPE2S: [ConnectorType.TYPE2, ConnectorType.TYPE2S, ConnectorType.DOMESTIC],
+  CCS: [ConnectorType.CCS, ConnectorType.DOMESTIC],
+  CHADEMO: [ConnectorType.CHADEMO, ConnectorType.DOMESTIC],
+  DOMESTIC: [ConnectorType.DOMESTIC], // Véhicule avec prise domestique uniquement
+};
 import * as ExcelJS from "exceljs";
 
 /**
@@ -29,7 +42,7 @@ export class BookingsService {
   ) {
     this.stripe = new Stripe(
       this.configService.get("STRIPE_SECRET_KEY") || "",
-      { apiVersion: "2025-02-24.acacia" },
+      { apiVersion: this.configService.get("STRIPE_API_VERSION") as Stripe.LatestApiVersion },
     );
   }
 
@@ -118,7 +131,7 @@ export class BookingsService {
         );
       }
 
-      if (!station.isActive || !(station as any).isAvailable) {
+      if (!station.isActive || !station.isAvailable) {
         throw new ConflictException(
           "La borne de recharge n'est pas active ou indisponible",
         );
@@ -144,6 +157,35 @@ export class BookingsService {
         throw new ConflictException(
           "Station déjà réservée pour ce créneau horaire",
         );
+      }
+
+      // 3.5 Validation du véhicule si fourni
+      if (dto.vehicleId) {
+        const vehicle = await tx.vehicle.findUnique({
+          where: { id: dto.vehicleId },
+        });
+
+        if (!vehicle) {
+          throw new NotFoundException("Véhicule introuvable");
+        }
+
+        if (vehicle.userId !== userId) {
+          throw new ForbiddenException(
+            "Ce véhicule ne vous appartient pas",
+          );
+        }
+
+        // 3.6 Validation de la compatibilité des connecteurs
+        if (vehicle.connectorType && station.connectorType) {
+          const compatibleConnectors = CONNECTOR_COMPATIBILITY[vehicle.connectorType];
+
+          if (!compatibleConnectors.includes(station.connectorType)) {
+            throw new BadRequestException(
+              `Connecteur incompatible : votre véhicule (${vehicle.connectorType}) ne peut pas utiliser cette borne (${station.connectorType}). ` +
+              `Connecteurs compatibles : ${compatibleConnectors.join(", ")}.`,
+            );
+          }
+        }
       }
 
       // 4. Calcul du prix
@@ -188,7 +230,7 @@ export class BookingsService {
         },
       });
 
-      return BookingResponseDto.fromReservation(reservation as any);
+      return BookingResponseDto.fromReservation(reservation as ReservationWithRelations);
     });
   }
 
@@ -288,7 +330,7 @@ export class BookingsService {
       }),
     ]);
 
-    const data = BookingResponseDto.fromReservations(reservations as any);
+    const data = BookingResponseDto.fromReservations(reservations as ReservationWithRelations[]);
 
     return {
       data,
@@ -330,7 +372,7 @@ export class BookingsService {
       orderBy: { startDatetime: "desc" },
     });
 
-    return BookingResponseDto.fromReservations(reservations as any);
+    return BookingResponseDto.fromReservations(reservations as ReservationWithRelations[]);
   }
 
   /**
@@ -373,7 +415,7 @@ export class BookingsService {
       throw new NotFoundException("Réservation introuvable");
     }
 
-    return BookingResponseDto.fromReservation(reservation as any);
+    return BookingResponseDto.fromReservation(reservation as ReservationWithRelations);
   }
 
   /**
@@ -452,7 +494,7 @@ export class BookingsService {
           payment: true,
         },
       });
-      return BookingResponseDto.fromReservation(updated as any);
+      return BookingResponseDto.fromReservation(updated as ReservationWithRelations);
     });
   }
 
@@ -517,7 +559,7 @@ export class BookingsService {
       },
     });
 
-    return BookingResponseDto.fromReservation(updated as any);
+    return BookingResponseDto.fromReservation(updated as ReservationWithRelations);
   }
 
   /**
@@ -606,10 +648,10 @@ export class BookingsService {
           this.logger.log("[CANCEL] Real Stripe refund");
 
           const refund = await this.stripe.refunds.create({
-            payment_intent: reservation.payment.stripePaymentId,
+            payment_intent: reservation.payment.stripePaymentId ?? undefined,
             amount: refundAmount,
             reason: "requested_by_customer",
-          } as any);
+          });
 
           this.logger.log(`[CANCEL] Refund created: ${refund.id}`);
 
@@ -628,7 +670,7 @@ export class BookingsService {
                 : `Remboursement partiel (${refundPercentage}%) - Annulation tardive (Stripe: ${refund.id})`,
           };
         } catch (error) {
-          console.error("Erreur de remboursement lors de l'annulation :", error);
+          this.logger.error("Erreur de remboursement lors de l'annulation", error);
           refundResult = {
             refunded: false,
             message: "Erreur lors du remboursement: " + error.message,
@@ -661,7 +703,7 @@ export class BookingsService {
       },
     });
 
-    const response = BookingResponseDto.fromReservation(cancelled as any);
+    const response = BookingResponseDto.fromReservation(cancelled as ReservationWithRelations);
 
     // Ajouter les infos de remboursement à la réponse
     return {
@@ -715,6 +757,7 @@ export class BookingsService {
       });
     });
 
-    return (await workbook.xlsx.writeBuffer()) as any;
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 }

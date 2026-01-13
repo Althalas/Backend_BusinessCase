@@ -63,40 +63,53 @@ export class VehiclesController {
   @ApiOperation({ summary: "Détails d'un véhicule" })
   @ApiResponse({ status: 200, description: "Détails du véhicule." })
   @ApiResponse({ status: 404, description: "Véhicule introuvable." })
+  @ApiResponse({ status: 403, description: "Accès refusé." })
   /**
    * Récupère les informations détaillées d'un véhicule spécifique.
+   * Vérifie que le véhicule appartient à l'utilisateur connecté.
    *
+   * @param userId - L'ID de l'utilisateur connecté.
    * @param id - L'identifiant unique du véhicule.
    * @returns L'objet véhicule correspondant.
    */
-  findOne(@Param("id") id: string) {
-    return this.vehiclesService.findOne(+id);
+  findOne(@CurrentUser("id") userId: number, @Param("id") id: string) {
+    return this.vehiclesService.findOne(userId, +id);
   }
 
   @Patch(":id")
   @ApiOperation({ summary: "Modifier un véhicule" })
   @ApiResponse({ status: 200, description: "Véhicule mis à jour." })
+  @ApiResponse({ status: 403, description: "Accès refusé." })
   /**
    * Met à jour les informations d'un véhicule existant (ex: changer le modèle, la plaque).
+   * Vérifie que le véhicule appartient à l'utilisateur connecté.
    *
+   * @param userId - L'ID de l'utilisateur connecté.
    * @param id - L'identifiant du véhicule à modifier.
    * @param updateVehicleDto - Les nouvelles données à appliquer.
    * @returns Le véhicule mis à jour.
    */
-  update(@Param("id") id: string, @Body() updateVehicleDto: UpdateVehicleDto) {
-    return this.vehiclesService.update(+id, updateVehicleDto);
+  update(
+    @CurrentUser("id") userId: number,
+    @Param("id") id: string,
+    @Body() updateVehicleDto: UpdateVehicleDto,
+  ) {
+    return this.vehiclesService.update(userId, +id, updateVehicleDto);
   }
 
   @Delete(":id")
   @ApiOperation({ summary: "Supprimer un véhicule" })
   @ApiResponse({ status: 200, description: "Véhicule supprimé." })
+  @ApiResponse({ status: 403, description: "Accès refusé." })
   /**
    * Supprime définitivement un véhicule du profil de l'utilisateur.
+   * Vérifie que le véhicule appartient à l'utilisateur connecté.
    *
+   * @param userId - L'ID de l'utilisateur connecté.
    * @param id - L'identifiant du véhicule à supprimer.
    * @returns Le véhicule supprimé.
    */
-  remove(@Param("id") id: string) {
-    return this.vehiclesService.remove(+id);
+  remove(@CurrentUser("id") userId: number, @Param("id") id: string) {
+    return this.vehiclesService.remove(userId, +id);
   }
 }

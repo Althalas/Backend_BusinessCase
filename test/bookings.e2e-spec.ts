@@ -95,7 +95,7 @@ describe("BookingsController (e2e)", () => {
     it("should create a booking", async () => {
       const startTime = new Date();
       startTime.setDate(startTime.getDate() + 1); // Tomorrow
-      startTime.setMinutes(0, 0, 0); // Start of hour
+      startTime.setHours(14, 0, 0, 0); // Force start at 14:00 to avoid late-night execution issues
 
       const endTime = new Date(startTime);
       endTime.setHours(endTime.getHours() + 2); // 2 hours later
@@ -118,6 +118,7 @@ describe("BookingsController (e2e)", () => {
     it("should fail if station does not exist", async () => {
       const startTime = new Date();
       startTime.setDate(startTime.getDate() + 2);
+      startTime.setHours(14, 0, 0, 0);
 
       const endTime = new Date(startTime);
       endTime.setHours(endTime.getHours() + 2);

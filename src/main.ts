@@ -22,8 +22,16 @@ async function bootstrap() {
         directives: {
           defaultSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
-          imgSrc: ["'self'", "data:", "https://maps.googleapis.com", "blob:"],
+          scriptSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline pour Swagger UI
+          imgSrc: [
+            "'self'",
+            "data:",
+            "blob:",
+            "https://*.tile.openstreetmap.org",      // Tuiles Leaflet/OSM
+            "https://raw.githubusercontent.com",      // Icônes marqueurs Leaflet
+            "https://cdnjs.cloudflare.com",           // Shadow marqueurs
+            "https://unpkg.com",                      // Assets Leaflet
+          ],
         },
       },
       hsts: { maxAge: 31536000, includeSubDomains: true },
@@ -68,31 +76,42 @@ async function bootstrap() {
   // Préfixe API
   app.setGlobalPrefix("api");
 
-  // Documentation Swagger
-  const config = new DocumentBuilder()
-    .setTitle("API Electricity Business")
-    .setDescription(
-      "API pour la plateforme de partage de bornes de recharge VE entre particuliers",
-    )
-    .setVersion("1.0")
-    .addBearerAuth()
-    .addTag("auth", "Endpoints d'authentification")
-    .addTag("users", "Gestion des utilisateurs")
-    .addTag("stations", "Bornes de recharge")
-    .addTag("bookings", "Réservations")
-    .addTag("payments", "Traitement des paiements")
-    .addTag("reviews", "Notes et avis")
-    .addTag("vehicles", "Gestion des véhicules")
-    .build();
+  // Documentation Swagger (désactivée en production pour sécurité)
+  const isProduction = process.env.NODE_ENV === "production";
+  const enableSwagger = configService.get("ENABLE_SWAGGER") === "true";
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup("api/docs", app, document);
+  if (!isProduction || enableSwagger) {
+    const config = new DocumentBuilder()
+      .setTitle("API Electricity Business")
+      .setDescription(
+        "API pour la plateforme de partage de bornes de recharge VE entre particuliers",
+      )
+      .setVersion("1.0")
+      .addBearerAuth()
+      .addTag("auth", "Endpoints d'authentification")
+      .addTag("users", "Gestion des utilisateurs")
+      .addTag("stations", "Bornes de recharge")
+      .addTag("bookings", "Réservations")
+      .addTag("payments", "Traitement des paiements")
+      .addTag("reviews", "Notes et avis")
+      .addTag("vehicles", "Gestion des véhicules")
+      .build();
+
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup("api/docs", app, document);
+  }
 
   const port = process.env.PORT || 3000;
+  const logger = new Logger("Bootstrap");
+
   await app.listen(port);
 
-  console.log(`L'application tourne sur : http://localhost:${port}`);
-  console.log(`Documentation Swagger : http://localhost:${port}/api/docs`);
+  logger.log(`Application démarrée sur le port ${port}`);
+  if (!isProduction || enableSwagger) {
+    logger.log(`Documentation Swagger : http://localhost:${port}/api/docs`);
+  } else {
+    logger.log("Swagger désactivé en production (ENABLE_SWAGGER=true pour activer)");
+  }
 }
 
 bootstrap();

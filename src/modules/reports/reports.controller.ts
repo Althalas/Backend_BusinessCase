@@ -10,50 +10,17 @@ import {
   Request,
 } from "@nestjs/common";
 import { ReportsService } from "./reports.service";
+import { CreateReportDto } from "./dto/create-report.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
-import { UserRole, ReportReason, ReportStatus } from "@prisma/client";
-
+import { UserRole, ReportStatus } from "@prisma/client";
 import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
   ApiResponse,
-  ApiProperty,
 } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional, IsNumber, IsString } from "class-validator";
-
-/**
- * DTO pour la création d'un signalement.
- * Peut cibler une station ou un avis.
- */
-class CreateReportDto {
-  @ApiProperty({
-    description: "ID de la station signalée (optionnel)",
-    required: false,
-  })
-  @IsOptional()
-  @IsNumber()
-  targetStationId?: number;
-
-  @ApiProperty({
-    description: "ID de l'avis signalé (optionnel)",
-    required: false,
-  })
-  @IsOptional()
-  @IsNumber()
-  targetReviewId?: number;
-
-  @ApiProperty({ description: "Motif du signalement", enum: ReportReason })
-  @IsNotEmpty()
-  reason: ReportReason;
-
-  @ApiProperty({ description: "Description détaillée", required: false })
-  @IsOptional()
-  @IsString()
-  description?: string;
-}
 
 /**
  * Contrôleur des signalements.

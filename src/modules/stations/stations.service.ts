@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from "@nestjs/common";
 import { Prisma, UserRole, ReservationStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -16,6 +17,8 @@ import { SearchStationsDto } from "./dto/search-stations.dto";
  */
 @Injectable()
 export class StationsService {
+  private readonly logger = new Logger(StationsService.name);
+
   constructor(private prisma: PrismaService) {}
 
   /**
@@ -132,7 +135,7 @@ export class StationsService {
 
       const [stations, total] = await Promise.all([
         this.prisma.chargingStation.findMany({
-          where: { isActive: true, deletedAt: null },
+          where: { isActive: true, isAvailable: true, deletedAt: null },
           skip,
           take: limitNum,
           include: {
@@ -151,7 +154,7 @@ export class StationsService {
           orderBy: { createdAt: "desc" },
         }),
         this.prisma.chargingStation.count({
-          where: { isActive: true, deletedAt: null },
+          where: { isActive: true, isAvailable: true, deletedAt: null },
         }),
       ]);
 
@@ -159,14 +162,13 @@ export class StationsService {
         data: stations,
         meta: {
           total,
-          itemCount: stations.length,
-          itemsPerPage: limitNum,
+          page: pageNum,
+          limit: limitNum,
           totalPages: Math.ceil(total / limitNum),
-          currentPage: pageNum,
         },
       };
     } catch (error) {
-      console.error("Erreur dans findAll :", error);
+      this.logger.error("Erreur dans findAll", error);
       throw error;
     }
   }
@@ -320,10 +322,9 @@ export class StationsService {
           data: sortedStations,
           meta: {
             total,
-            itemCount: sortedStations.length,
-            itemsPerPage: limit,
+            page,
+            limit,
             totalPages: Math.ceil(total / limit),
-            currentPage: page,
           },
         };
       }
@@ -399,14 +400,13 @@ export class StationsService {
         data: stations,
         meta: {
           total,
-          itemCount: stations.length,
-          itemsPerPage: limit,
+          page,
+          limit,
           totalPages: Math.ceil(total / limit),
-          currentPage: page,
         },
       };
     } catch (error) {
-      console.error("Erreur dans search :", error);
+      this.logger.error("Erreur dans search", error);
       throw error;
     }
   }

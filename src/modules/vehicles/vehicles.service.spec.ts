@@ -95,61 +95,78 @@ describe("VehiclesService", () => {
   });
 
   describe("findOne", () => {
-    it("should return a vehicle by id", async () => {
+    it("should return a vehicle by id for a user", async () => {
+      const userId = 1;
+      const vehicleId = 1;
       const mockVehicle = {
-        id: 1,
-        userId: 1,
+        id: vehicleId,
+        userId,
         brand: "Tesla",
         model: "Model 3",
       };
 
       mockPrismaService.vehicle.findUnique.mockResolvedValue(mockVehicle);
 
-      const result = await service.findOne(1);
+      const result = await service.findOne(userId, vehicleId);
 
       expect(result).toEqual(mockVehicle);
       expect(prisma.vehicle.findUnique).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: vehicleId },
       });
     });
 
-    it("should return null if vehicle not found", async () => {
+    it("should throw NotFoundException if vehicle not found", async () => {
+      const userId = 1;
+      const vehicleId = 999;
       mockPrismaService.vehicle.findUnique.mockResolvedValue(null);
 
-      const result = await service.findOne(999);
-
-      expect(result).toBeNull();
+      await expect(service.findOne(userId, vehicleId)).rejects.toThrow(
+        "Véhicule introuvable",
+      );
     });
   });
 
   describe("update", () => {
-    it("should update a vehicle", async () => {
+    it("should update a vehicle for a user", async () => {
+      const userId = 1;
+      const vehicleId = 1;
       const updateDto = { brand: "Tesla", model: "Model Y" };
-      const updatedVehicle = { id: 1, userId: 1, ...updateDto };
+      const existingVehicle = { id: vehicleId, userId, brand: "Tesla", model: "Model 3" };
+      const updatedVehicle = { id: vehicleId, userId, ...updateDto };
 
+      mockPrismaService.vehicle.findUnique.mockResolvedValue(existingVehicle);
       mockPrismaService.vehicle.update.mockResolvedValue(updatedVehicle);
 
-      const result = await service.update(1, updateDto);
+      const result = await service.update(userId, vehicleId, updateDto);
 
       expect(result).toEqual(updatedVehicle);
+      expect(prisma.vehicle.findUnique).toHaveBeenCalledWith({
+        where: { id: vehicleId },
+      });
       expect(prisma.vehicle.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: vehicleId },
         data: updateDto,
       });
     });
   });
 
   describe("remove", () => {
-    it("should delete a vehicle", async () => {
-      const mockVehicle = { id: 1, userId: 1, brand: "Tesla" };
+    it("should delete a vehicle for a user", async () => {
+      const userId = 1;
+      const vehicleId = 1;
+      const mockVehicle = { id: vehicleId, userId, brand: "Tesla" };
 
+      mockPrismaService.vehicle.findUnique.mockResolvedValue(mockVehicle);
       mockPrismaService.vehicle.delete.mockResolvedValue(mockVehicle);
 
-      const result = await service.remove(1);
+      const result = await service.remove(userId, vehicleId);
 
       expect(result).toEqual(mockVehicle);
+      expect(prisma.vehicle.findUnique).toHaveBeenCalledWith({
+        where: { id: vehicleId },
+      });
       expect(prisma.vehicle.delete).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: vehicleId },
       });
     });
   });

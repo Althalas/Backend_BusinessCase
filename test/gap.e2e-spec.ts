@@ -94,10 +94,14 @@ describe("Gap Analysis (e2e)", () => {
 
   it("should create booking and PREVENT deletion of station", async () => {
     // Create Booking
-    const start = new Date();
-    start.setHours(start.getHours() + 24);
-    const end = new Date();
-    end.setHours(end.getHours() + 26);
+    // Create Booking
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(start.getDate() + 1);
+    start.setHours(16, 0, 0, 0); // Fixed tomorrow 16:00
+
+    const end = new Date(start);
+    end.setHours(end.getHours() + 2);
 
     const bookingRes = await request(app.getHttpServer())
       .post("/bookings")
